@@ -1,0 +1,113 @@
+---
+title: Miscellaneous Features
+hide_meta: true
+---
+
+# Community Suggested Features
+
+<Callout variant="info">
+Credit to AceTheEldritchKing for this tip.
+</Callout>
+
+## Adding a Conditional Bone
+
+In your armor renderer, call the `createPipeline` and return a new `AzArmorRendererPipeline`. In that new `AzArmorRendererPipeline` override the `boneContext` method you can now define your bone as below
+
+```java
+public ExampleItemRenderer() {
+    super(
+        AzArmorRendererConfig.builder(MODEL, TEXTURE)
+            .setAnimatorProvider(ExampleAnimator::new)
+            .setPipelineContext(rendererPipeline -> new AzArmorRendererPipelineContext(rendererPipeline) {
+
+                @Override
+                public AzArmorBoneContext boneContext() {
+                    return new AzArmorBoneContext() {
+
+                        private AzBone armorLeggingTorsoBone;
+
+                        public AzBone getArmorLeggingTorsoBone(AzBakedModel model) {
+                            return model.getBone("newArmorBone").orElse(null);
+                        }
+
+                        @Override
+                        public void grabRelevantBones(AzBakedModel model, AzArmorBoneProvider boneProvider) {
+                            super.grabRelevantBones(model, boneProvider);
+                            this.armorLeggingTorsoBone = this.getArmorLeggingTorsoBone(model);
+                        }
+                    };
+                }
+            })
+            .build()
+    );
+}
+```
+
+### Displaying Conditional Bones Only When Certain Armor Items are Equipped
+
+Like above after you add your bone, simply override `applyBoneVisibilityBySlot` like so and first hide it then unhide in the armor piece you want it to show in.boneContext
+```java
+public ExampleItemRenderer() {
+    super(
+        AzArmorRendererConfig.builder(MODEL, TEXTURE)
+            .setAnimatorProvider(ExampleAnimator::new)
+            .setPipelineContext(rendererPipeline -> new AzArmorRendererPipelineContext(rendererPipeline) {
+
+                @Override
+                public AzArmorBoneContext boneContext() {
+                    return new AzArmorBoneContext() {
+
+                        private AzBone armorLeggingTorsoBone;
+
+                        public AzBone getArmorLeggingTorsoBone(AzBakedModel model) {
+                            return model.getBone("newArmorBone").orElse(null);
+                        }
+
+                        @Override
+                        public void grabRelevantBones(AzBakedModel model, AzArmorBoneProvider boneProvider) {
+                            super.grabRelevantBones(model, boneProvider);
+                            this.armorLeggingTorsoBone = this.getArmorLeggingTorsoBone(model);
+                        }
+
+                        @Override
+                        public void applyBoneVisibilityBySlot(EquipmentSlot currentSlot) {
+                            setAllVisible(false);
+
+                            // Hide the legging torso bone initially
+                            this.setBoneVisible(this.armorLeggingTorsoBone, false);
+
+                            switch (currentSlot) {
+                                case HEAD -> setBoneVisible(this.head, true);
+                                case CHEST -> {
+                                    setBoneVisible(this.body, true);
+                                    setBoneVisible(this.rightArm, true);
+                                    setBoneVisible(this.leftArm, true);
+                                }
+                                case LEGS -> {
+                                    // Make the legging torso bone visible when the legging armor is equipped
+                                    this.setBoneVisible(this.armorLeggingTorsoBone, true);
+                                    setBoneVisible(this.rightLeg, true);
+                                    setBoneVisible(this.leftLeg, true);
+                                }
+                                case FEET -> {
+                                    setBoneVisible(this.rightBoot, true);
+                                    setBoneVisible(this.leftBoot, true);
+                                }
+                                case MAINHAND, OFFHAND -> { /* NO-OP */ }
+                            }
+                        }
+                    };
+                }
+            })
+            .build()
+    );
+}
+```
+
+## Render 3D Item in GUI instead of 2D texture for Armor
+
+To do this simply call the `AzItemRendererRegistry#register()` in your `onInitializeClient` for Fabric and `FMLClientSetupEvent` for Forge for your ArmorItem
+
+```java
+AzItemRendererRegistry.register(CustomHelmetItemRenderer::new, YourItemRegistry.YOUR_ARMOR_HELMET);
+```
